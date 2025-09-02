@@ -7,7 +7,7 @@ typedef struct Strizzle {
     size_t length;
 } Strizzle;
 
-int read_entire_file(char* path, Strizzle* sb) {
+int read_entire_file(const char* path, Strizzle* sb) {
     FILE* fp;
     fp = fopen(path, "rb");
     if (fp == NULL) {
