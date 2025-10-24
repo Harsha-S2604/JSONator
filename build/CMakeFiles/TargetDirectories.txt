@@ -1,4 +1,0 @@
-/home/worst_coder/Nebulon/projects/JSONator/build/CMakeFiles/jsonator_lib.dir
-/home/worst_coder/Nebulon/projects/JSONator/build/CMakeFiles/jsonator.dir
-/home/worst_coder/Nebulon/projects/JSONator/build/CMakeFiles/edit_cache.dir
-/home/worst_coder/Nebulon/projects/JSONator/build/CMakeFiles/rebuild_cache.dir

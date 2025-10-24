@@ -1,2 +1,0 @@
-/usr/bin/ar qc libjsonator_lib.a CMakeFiles/jsonator_lib.dir/jsonator.c.o
-/usr/bin/ranlib libjsonator_lib.a

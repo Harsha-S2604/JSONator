@@ -1,1 +1,0 @@
-/usr/bin/cc -Wl,--dependency-file=CMakeFiles/jsonator.dir/link.d CMakeFiles/jsonator.dir/main.c.o -o jsonator  libjsonator_lib.a
