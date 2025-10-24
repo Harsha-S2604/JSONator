@@ -3,7 +3,7 @@
 
 int main() {
     printf("JSONATOR\n");
-	char* json_str = "PARSING JSON";
-	int parsed = parse_json(json_str);
+	char* input = "profile.json";
+	int parsed = parse_json(input);
 	return 0;
 }
