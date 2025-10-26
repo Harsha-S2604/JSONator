@@ -103,7 +103,10 @@ short int parse_number(StringBuilder* sb, JSONATOR* json) {
 	long long int decimal_place = 0;
 
 	char token = sb -> data[sb -> idx_pointer];
-	while(token != '\0' && ((token >= '0' && token <= '9') || (token == '.'))) {
+	while(token != '\0' && 
+		((token >= '0' && token <= '9') || (token == '.')) &&
+		sb -> idx_pointer < sb -> length	
+	) {
 		if (token == '.' && is_float) return 0;
 	
 		if (token == '.') {
@@ -124,6 +127,8 @@ short int parse_number(StringBuilder* sb, JSONATOR* json) {
 			number = (number * 10) + num;
 		}
 		token = sb -> data[++(sb -> idx_pointer)];
+
+		if (isspace(token) && sb -> idx_pointer < sb -> length) return 0;
 	}
 	
 	if (is_float) {
@@ -137,7 +142,25 @@ short int parse_number(StringBuilder* sb, JSONATOR* json) {
 	return 1;	
 }
 
-void parse_bool(StringBuilder* sb) {
+short int parse_bool(StringBuilder* sb, JSONATOR* json) {
+	char* bool_str = calloc(sb -> capacity, sizeof(char));
+	size_t idx = 0;
+
+	while (sb -> idx_pointer < sb -> length) {
+	   	char token = sb -> data[sb -> idx_pointer];
+		if (token == '\0' || isspace(token) || token == ',') break;
+
+		bool_str[idx++] = token;
+		sb -> idx_pointer++;
+	}
+	
+	if (sb -> idx_pointer < sb -> length && isspace(sb -> data[sb -> idx_pointer])) return 0;
+	if (strcmp(bool_str, "true") != 0 && strcmp(bool_str, "false") != 0) return 0;
+	
+	json -> type = JR_BOOLEAN;
+   	json -> bool_value = strcmp(bool_str, "true") == 0 ? 1 : 0;
+	
+	return 1;	
 }
 
 void parse_null(StringBuilder* sb) {
@@ -170,7 +193,14 @@ void display_json(JSONATOR* json) {
 					printf("%s: %d\n", json -> key, json -> str);
 				}
 				break;
-
+			
+			case JR_BOOLEAN:
+				const char* boolean_value = json -> bool_value ? "true": "false";
+				if (json -> key == NULL) {
+					printf("%s\n", boolean_value);
+				} else {
+					printf("%s: %s\n", json -> key, boolean_value);
+				}
 			default:
 				break;
 
@@ -183,7 +213,9 @@ void display_json(JSONATOR* json) {
 JSONATOR parse(StringBuilder* sb) {
 	JSONATOR json = {0}; 
 	sanitize_json_str(sb);
-	SymbolStack symbol_stack = create_symbol_stack(10); 
+	SymbolStack symbol_stack = create_symbol_stack(10);
+   	
+	short int parsed = 0;	
 
 	while(sb -> data[sb -> idx_pointer] != '\0') {
 		char token = sb -> data[sb -> idx_pointer];
@@ -199,15 +231,15 @@ JSONATOR parse(StringBuilder* sb) {
 				break;
 			case 't':
 			case 'f':
-				parse_bool(sb);
+				parsed = parse_bool(sb, &json);
+				if (!parsed) goto return_error; 
 				break;
 			case 'n':
 				parse_null(sb);
 				break;
 			case '0' ... '9':
 			case '.':
-				short int parsed = parse_number(sb, &json);
-				if (!parsed) goto return_error;
+				parsed = parse_number(sb, &json);
 				break;
 			default:
 				fprintf(stderr, "(PARSING_ERROR):: Syntax Error\n");
@@ -217,12 +249,11 @@ JSONATOR parse(StringBuilder* sb) {
 		sb -> idx_pointer++;
 	}
 
-	
 	display_json(&json);	
 	return json;
-	
+
 	return_error:
-		fprintf(stderr, "(PARSING_ERROR):: Syntax Error\n");
+		fprintf(stderr, "(PARSING ERROR):: Syntax Error\n");
 		JSONATOR error_json = {0};
 		return error_json;
 }
