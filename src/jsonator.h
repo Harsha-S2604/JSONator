@@ -22,6 +22,7 @@ typedef struct JSONATOR {
 	short int bool_value;
 
 	struct JSONATOR* object;
+	struct JSONATOR* next;
 
 } JSONATOR;
 
