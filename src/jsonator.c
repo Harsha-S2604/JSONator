@@ -89,14 +89,83 @@ short int is_token_not_valid(char token) {
 }
 
 short int parse_object(StringBuilder* sb, SymbolStack* symbol_stack) {
+	push(symbol_stack, "\{");
+	sb -> idx_pointer += 1;	
 	return 0;
 }
 
 short int parse_array(StringBuilder* sb, SymbolStack* symbol_stack) {
+	push(symbol_stack, "[");
+	sb -> idx_pointer += 1;	
 	return 0;
 }
 
-short int parse_string(StringBuilder* sb, SymbolStack* symbol_stack) {
+short int parse_string(
+	StringBuilder* sb,
+	SymbolStack* symbol_stack,
+	JSONATOR* json,
+	short int is_key
+) {
+	if (sb -> data[sb -> idx_pointer] != '"') {
+		fprintf(stderr, "Expected the opening quote but got %c", sb -> data[sb -> idx_pointer]);
+		return 0;	
+	}
+	
+	push(symbol_stack, "\"");
+	sb -> idx_pointer += 1;	
+		
+	StringBuilder str_builder = new_string_builder();
+	allocate_memory_data(&str_builder, 10);
+	while (sb -> idx_pointer < sb -> length) {
+		char token = sb -> data[sb -> idx_pointer];
+		if (token == '\\') {
+			char next_token = sb -> data[++(sb -> idx_pointer)];
+			switch (next_token) {
+				case '"':
+					push_str_element(&str_builder, '\"');
+					break;	
+				case '\\':
+					push_str_element(&str_builder, '\\');
+					break;	
+				case 'n':
+					push_str_element(&str_builder, '\n');
+					break;	
+				case 't':
+					push_str_element(&str_builder, '\t');
+					break;	
+				case 'r':	
+					push_str_element(&str_builder, '\r');
+					break;
+				default:
+					push_str_element(&str_builder, next_token);
+					break;	
+			}
+			
+			sb -> idx_pointer += 1;
+			continue;
+		} else if (token == '"') {
+			char* poped_element = pop(symbol_stack);
+			if (strcmp(poped_element, "\"") == 0) {
+				sb -> idx_pointer += 1;
+				str_builder.data[str_builder.idx_pointer] = '\0';
+				if (is_key) {
+					json -> key = str_builder.data;
+				} else {
+					json -> type = JR_STRING;
+					json -> str = str_builder.data;
+				}
+
+				return 1;
+			}
+
+			return 0;
+		} else if (token == '\n') {
+			return 0;
+		}
+		push_str_element(&str_builder, token);	
+		sb -> idx_pointer += 1;
+	}
+	
 	return 0;
 }
 
@@ -182,7 +251,7 @@ short int parse_null(StringBuilder* sb, JSONATOR* json) {
 	if (sb -> idx_pointer < sb -> length && isspace(sb -> data[sb -> idx_pointer])) return 0; 	
 	if (strcmp(null_value, "null") != 0) return 0; 
 	json -> type = JR_NULL;
-	return 1;	
+	return 1;
 }
 
 void display_json(JSONATOR* json) {
@@ -253,13 +322,13 @@ JSONATOR parse(StringBuilder* sb) {
 				if (!parsed) goto return_error;
 				break;
 			case '"':
-				parsed = parse_string(sb, &symbol_stack);
-				if (!parsed) goto return_error;
+				parsed = parse_string(sb, &symbol_stack, &json, 0);
+				if (!parsed || (sb -> idx_pointer < sb -> length)) goto return_error;
 				break;
 			case 't':
 			case 'f':
 				parsed = parse_bool(sb, &json);
-				if (!parsed) goto return_error; 
+				if (!parsed) goto return_error;
 				break;
 			case 'n':
 				parsed = parse_null(sb, &json);

@@ -39,17 +39,20 @@ void push(SymbolStack* st, char* element) {
 	st -> stack[st -> top++] = element;	
 }
 
-void pop(SymbolStack* st) {
+char* pop(SymbolStack* st) {
 	if (st == NULL) {
 		fprintf(stderr, "(ERROR):: stack must be allocated using create_symbol_stack\n");
-		return;
+		return "";
 	}
 
 	if (st -> top == 0) {
 		fprintf(stderr, "(ERROR):: Nothing to delete\n");
-		return;
+		return "";
 	}
-
+	
+	char* poped_element = st -> stack[st -> top - 1];
 	st -> top -= 1;
+
+	return poped_element;
 }
 #endif
