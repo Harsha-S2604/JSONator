@@ -498,6 +498,10 @@ void print_array(JSONATOR* json) {
 				}
 				break;
 
+			case JR_OBJECT:
+				print_object(json -> next, 1);
+				break;
+
 			default:
 				break;	
 		}
