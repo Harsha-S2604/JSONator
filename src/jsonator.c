@@ -4,9 +4,13 @@
 #include <ctype.h>
 
 #include "jsonator.h"
-#include "stringbuilder.h"
 #include "stack.h"
+#include "stringbuilder.h"
 
+short int parse_object(StringBuilder* sb, SymbolStack* st, JSONATOR* json);
+short int parse_array(StringBuilder* sb, SymbolStack* st, JSONATOR* json);
+void print_array(JSONATOR* json);
+void print_object(JSONATOR* json, size_t deep);
 
 char* get_status_message(short int status_code) {
 	switch (status_code) {
@@ -247,7 +251,6 @@ short int parse_bool(StringBuilder* sb, JSONATOR* json) {
 		if (strcmp(bool_str, "true") == 0 || strcmp(bool_str, "false") == 0) break;
 	}
 	
-	if (sb -> idx_pointer < sb -> length && isspace(sb -> data[sb -> idx_pointer])) return 0;
 	if (strcmp(bool_str, "true") != 0 && strcmp(bool_str, "false") != 0) return 0;
 	
 	json -> type = JR_BOOLEAN;
@@ -271,17 +274,11 @@ short int parse_null(StringBuilder* sb, JSONATOR* json) {
 		if (strcmp(null_value, "null") == 0) break; 
 	}
 	
-	if (sb -> idx_pointer < sb -> length && isspace(sb -> data[sb -> idx_pointer])) return 0; 	
 	if (strcmp(null_value, "null") != 0) return 0; 
 	
 	json -> type = JR_NULL;
 	sanitize_leading_spaces(sb);
 	return 1;
-}
-short int parse_object(StringBuilder* sb, SymbolStack* symbol_stack, JSONATOR* json) {
-	push(symbol_stack, "\{");
-	sb -> idx_pointer += 1;	
-	return 0;
 }
 
 short int parse_array(StringBuilder* sb, SymbolStack* symbol_stack, JSONATOR* json) {
@@ -357,6 +354,100 @@ short int parse_array(StringBuilder* sb, SymbolStack* symbol_stack, JSONATOR* js
 	return 0;
 }
 
+short int parse_object(StringBuilder* sb, SymbolStack* symbol_stack, JSONATOR* json) {
+	if (sb -> data[sb -> idx_pointer] != '{') return 0;
+	
+	push(symbol_stack, "{");
+	sb -> idx_pointer += 1;
+
+	json -> type = JR_OBJECT;
+	short int allocated = allocate_json_next(json);
+	if(!allocated) return 0;
+	json = json -> next;
+
+	short int is_key = 0, parsed = 0;
+	sanitize_leading_spaces(sb);
+	
+	while (sb -> idx_pointer < sb -> length) {
+		char token = sb -> data[sb -> idx_pointer];
+		switch (token) {
+			case '{':
+				parsed = parse_object(sb, symbol_stack, json);
+				if (!parsed) return 0;
+				break;
+			case '[':
+				parsed = parse_array(sb, symbol_stack, json);
+				if (!parsed) return 0;
+				break;
+			case '"':
+				parsed = parse_string(sb, symbol_stack, json, !is_key);
+				if (!parsed) return 0;
+				if (!is_key) {
+					if(sb -> data[sb -> idx_pointer] != ':') return 0;
+					is_key = 1;
+					sb -> idx_pointer += 1;
+					sanitize_leading_spaces(sb);
+					continue;
+				}
+				break;
+			case '0' ... '9':
+			case '.':
+			case '-':
+				parsed = parse_number(sb, json);
+				if (!parsed) return 0;
+				break;
+			case 't':
+			case 'f':
+				parsed = parse_bool(sb, json);
+				if (!parsed) return 0;
+				break;
+			case 'n':
+				parsed = parse_null(sb, json);
+				if (!parsed) return 0;
+				break;
+			default:
+				if (!is_key) return 0;
+				break;
+		}
+
+		if (
+			!is_key &&
+			sb -> data[sb -> idx_pointer] != ',' &&
+			sb -> data[sb -> idx_pointer] != '}'
+		) {
+			return 0;
+		}
+
+		if (sb -> data[sb -> idx_pointer] == ',') {
+			is_key = 0;
+			sb -> idx_pointer += 1;
+			sanitize_leading_spaces(sb);
+			allocate_json_data(json);
+			json = json -> object;
+			continue;
+		}
+
+		if (sb -> data[sb -> idx_pointer] == '}') {
+			char* poped_element = pop(symbol_stack);
+			if (strcmp(poped_element, "{") == 0) {
+				sb -> idx_pointer += 1;
+				sanitize_leading_spaces(sb);
+				return 1;
+			}
+			return 0;
+		}
+		
+	}	
+	return 0;
+}
+
+void print_tab(size_t deep) {
+	while (deep > 0) {
+		printf("\t");
+		deep -= 1;
+	}
+}
+
 void print_array(JSONATOR* json) {
 	printf("[");
 	while (json != NULL) {
@@ -417,11 +508,84 @@ void print_array(JSONATOR* json) {
 	printf("]");
 }
 
+void print_object(JSONATOR* json, size_t deep) {
+	printf("{\n");
+	while (json != NULL) {
+		print_tab(deep);
+		switch (json -> type) {
+			case JR_OBJECT:
+				printf("%s: ", json -> key);
+				print_object(json -> next, deep + 1);
+				break;
+			case JR_ARRAY:
+				printf("%s: ", json -> key);
+				print_array(json -> next);
+				if (json -> object != NULL) {
+					printf(",\n");
+				} else {
+					printf("\n");
+				}
+				break;
+			case JR_STRING:
+				if (json -> object != NULL) {
+					printf("%s: %s,\n", json -> key, json -> str); 	
+				} else {
+					printf("%s: %s\n", json -> key, json -> str);
+				}
+				break;
+			case JR_INT_NUMBER:
+				if (json -> object != NULL) {
+					printf("%s: %lld,\n", json -> key, json -> number);	
+				} else {
+					printf("%s: %lld\n", json -> key, json -> number);	
+				}
+				break;
+			case JR_DECIMAL_NUMBER:
+				if (json -> object != NULL) {
+					printf("%s: %lf,\n", json -> key, json -> float_num);
+				} else {
+					printf("%s: %lf\n", json -> key, json -> float_num);
+				}
+				break;
+			case JR_NULL:
+				if (json -> object != NULL) {
+					printf("%s: null,\n", json -> key);
+				} else {
+					printf("%s: null\n", json -> key);
+				}
+				break;
+			case JR_BOOLEAN:
+				char* boolean_value = json -> bool_value ? "true": "false";
+				if (json -> object != NULL) {
+					printf("%s: %s,\n", json -> key, boolean_value);
+				} else {
+					printf("%s: %s\n", json -> key, boolean_value);
+				}
+				break;
+			default:
+				break;	
+		
+		}
+
+		json = json -> object;
+	}
+
+	print_tab(deep - 1);
+	if (deep > 1) {
+		printf("},\n");
+	} else {
+		printf("}");	
+	}
+}
 
 void display_json(JSONATOR* json) {
 	switch (json -> type) {
 		case JR_ARRAY:
 			print_array(json -> next);
+			break;
+
+		case JR_OBJECT:
+			print_object(json -> next, 1);
 			break;
 
 		case JR_INT_NUMBER:
@@ -497,10 +661,11 @@ JSONATOR parse(StringBuilder* sb) {
 			case 'f':
 				parsed = parse_bool(sb, &json);
 				if (!parsed) goto return_error;
+				if (sb -> idx_pointer < sb -> length) goto return_error;
 				break;
 			case 'n':
 				parsed = parse_null(sb, &json);
-				if (!parsed) goto return_error;
+				if (!parsed || sb -> idx_pointer < sb -> length) goto return_error; 	
 				break;
 			case '0' ... '9':
 			case '.':

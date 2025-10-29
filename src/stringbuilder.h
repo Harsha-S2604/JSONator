@@ -1,3 +1,5 @@
+#ifndef STRING_BUILDER_H
+#define STRING_BUILDER_H
 typedef struct StringBuilder {
 	char* data;
 	size_t capacity;
@@ -34,3 +36,4 @@ void push_str_element(StringBuilder* sb, char element) {
 
 	sb -> data[sb -> idx_pointer++] = element;
 }
+#endif

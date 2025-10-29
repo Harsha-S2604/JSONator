@@ -1,1 +1,20 @@
-[  "hello",["hi",1 ],2, null, true, false]
+{ 
+	"name": "john",
+   	"age": 26,
+	"address": {
+		"street": "123 street",
+		"city": "san jose",
+		"state": "california",
+		"nested_obj": {
+			"a": 123,
+			"b": 12.123,
+			"c": true,
+			"d": null,
+			"e": [1,"two",true , false]
+		}
+	},
+	"languages": [[1, 2, 3],"C", "C++", "Java"],
+	"rating": 4,
+	"some_value": true,
+	"some_null": null
+}
